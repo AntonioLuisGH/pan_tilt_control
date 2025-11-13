@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.so
+
+# C extensions
+*.pyd
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environment
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# ROS2 build and log folders
+log/
+build/
+install/
+
+# Bag files and datasets
+*.db3
+*.bag
+*.sqlite3
+*.sqlite
+velodyne/
+label_2/
+timestamps.csv
+
+# KITTI outputs
+*.bin
+*.txt
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints
+
+# IDE/editor settings
+.vscode/
+.idea/
+*.swp
+*.
