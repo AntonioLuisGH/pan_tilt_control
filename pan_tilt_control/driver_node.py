@@ -101,6 +101,12 @@ class PanTiltDriverNode(Node):
                 if self.serial_conn.in_waiting > 0:
                     line = self.serial_conn.readline().decode('utf-8').strip()
                     
+                    # --- START OF NEW DEBUG CODE ---
+                    # Log *everything* that comes from the Arduino
+                    if line:
+                        self.get_logger().info(f"Arduino says: '{line}'", throttle_duration_sec=1.0)
+                    # --- END OF NEW DEBUG CODE ---
+
                     # Expected format from Arduino: "S_PAN_TILT"
                     # e.g., "S_2048_2048"
                     if line.startswith('S_'):
@@ -122,7 +128,7 @@ class PanTiltDriverNode(Node):
                                 self.get_logger().warn(f"Received malformed data: {line}")
                     # else:
                         # Optional: log other lines from Arduino for debugging
-                        # self.get_logger().info(f"Arduino: {line}")
+                        # self.get_logger().info(f"Arduino: {line}") # This is now handled above
 
             except rclpy.executors.ExternalShutdownException:
                 break
