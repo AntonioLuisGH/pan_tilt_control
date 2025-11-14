@@ -65,6 +65,10 @@ void setup() {
     delay(1000);
   }
 
+  // --- NEW DEBUG ---
+  ROS_SERIAL.println("Servos PINGED successfully!");
+  // --- END DEBUG ---
+
   // Set servos to Position Control Mode (from your example)
   dxl.torqueOff(PAN_ID);
   dxl.torqueOff(TILT_ID);
@@ -73,9 +77,20 @@ void setup() {
   dxl.torqueOn(PAN_ID);
   dxl.torqueOn(TILT_ID);
 
+  // --- NEW DEBUG ---
+  ROS_SERIAL.println("Operating mode set. Torque ON.");
+  // --- END DEBUG ---
+
   // Read initial positions to set goals
   pan_pos_goal = dxl.getPresentPosition(PAN_ID);
   tilt_pos_goal = dxl.getPresentPosition(TILT_ID);
+
+  // --- NEW DEBUG ---
+  ROS_SERIAL.print("Initial positions read: Pan=");
+  ROS_SERIAL.print(pan_pos_goal);
+  ROS_SERIAL.print(", Tilt=");
+  ROS_SERIAL.println(tilt_pos_goal);
+  // --- END DEBUG ---
 
   ROS_SERIAL.println("Pan-Tilt Arduino Driver Initialized.");
 }
@@ -100,11 +115,22 @@ bool pingServos() {
 // Buffer for incoming serial data from ROS
 String ros_command = "";
 
+// --- NEW DEBUG ---
+// We add a new timer for a "heartbeat" message
+static unsigned long last_heartbeat_time = 0;
+// --- END DEBUG ---
+
+
 void loop() {
   // 1. Listen for commands from ROS
   if (ROS_SERIAL.available() > 0) {
     char c = ROS_SERIAL.read();
     if (c == '\n') {
+      // --- NEW DEBUG ---
+      // Print the command we just received from ROS
+      ROS_SERIAL.print("Received command: ");
+      ROS_SERIAL.println(ros_command);
+      // --- END DEBUG ---
       processRosCommand(ros_command);
       ros_command = ""; // Clear the buffer
     } else {
@@ -119,6 +145,14 @@ void loop() {
     last_publish_time = now;
     publishServoState();
   }
+
+  // --- NEW DEBUG ---
+  // 3. Add a "heartbeat" to know the loop is alive
+  if (now - last_heartbeat_time > 1000) { // 1000ms = 1 sec
+    last_heartbeat_time = now;
+    ROS_SERIAL.println("Loop heartbeat...");
+  }
+  // --- END DEBUG ---
 }
 
 
