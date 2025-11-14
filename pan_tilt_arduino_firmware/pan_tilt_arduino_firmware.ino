@@ -1,30 +1,27 @@
 /*
  * DYNAMIXEL Pan-Tilt ROS 2 Driver Firmware
  *
- * This version uses the <DynamixelShield.h> library, which you
- * proved is the correct one for your setup.
+ * This version is based on your working example.
+ * It uses the default `DynamixelShield` constructor, which
+ * automatically detects the Arduino Mega and uses:
+ * - Serial1 (Pins 18/19) for Servos
+ * - Serial (USB) for ROS / Debugging
  *
- * It still requires an Arduino Mega and jumper wires to use
- * the separate Serial1 port for servos, which is critical
- * for talking to ROS 2 at the same time.
- *
- * HARDWARE WIRING (Arduino Mega):
- * - Shield Pin 0 (RX)  -> Mega Pin 18 (TX1)
- * - Shield Pin 1 (TX)  -> Mega Pin 19 (RX1)
- * - Shield Pin 2 (DIR) -> Mega Pin 2
- * - Shield GND         -> Mega GND
- * - 12V Power to Shield VM
- * - USB to PC
+ * HARDWARE:
+ * 1. STACK the DYNAMIXEL Shield directly on the Arduino Mega.
+ * 2. (No jumper wires are needed for serial)
+ * 3. Set the "Upload Switch" to "DYNAMIXEL" (this is good practice).
+ * 4. Connect 12V Power to the Shield VM.
+ * 5. Connect the Arduino Mega to your PC via USB.
  */
 
 // Use the correct library that you found!
 #include <DynamixelShield.h>
 
 // --- DYNAMIXEL Config ---
-// This serial port is for the DYNAMIXELs
-// On Mega, Serial1 is pins 18 (TX) and 19 (RX)
-#define DXL_SERIAL   Serial1
-// const uint8_t DXL_DIR_PIN = 2; // Direction pin <-- DELETE THIS LINE
+// We will use the library's defaults.
+// On a Mega, this automatically uses Serial1 (pins 18/19)
+// and DIR_PIN 2.
 const uint8_t PAN_ID = 1;
 const uint8_t TILT_ID = 2;
 
@@ -38,9 +35,10 @@ const float DXL_PROTOCOL_VERSION = 2.0;
 const unsigned long ROS_BAUD_RATE = 115200;
 
 // --- KEY FIX ---
-// Initialize the DynamixelShield library, but tell it
-// to use our custom Serial1 port and DIR pin.
-DynamixelShield dxl(DXL_SERIAL, DXL_DIR_PIN);
+// Initialize the DynamixelShield library using the
+// default constructor, as shown in your working example.
+// The library will auto-detect the Mega and use Serial1.
+DynamixelShield dxl;
 
 //This namespace is required to use Control table item names
 using namespace ControlTableItem;
@@ -55,6 +53,7 @@ void setup() {
   // while (!ROS_SERIAL); // Wait for serial to open
 
   // Start the serial port to DYNAMIXELs (Serial1)
+  // (from your working example)
   dxl.begin(DXL_BAUD_RATE);
 
   // Set the port protocol (from your working example)
@@ -62,15 +61,15 @@ void setup() {
 
   // Continuously try to find servos before proceeding
   while (!pingServos()) {
-    ROS_SERIAL.println("Servos not found (check wiring/ID/baud). Retrying in 1 sec...");
+    ROS_SERIAL.println("Servos not found (check stacking/ID/baud). Retrying in 1 sec...");
     delay(1000);
   }
 
-  // Set servos to Position Control Mode (default is 3, which is position)
+  // Set servos to Position Control Mode (from your example)
+  dxl.torqueOff(PAN_ID);
+  dxl.torqueOff(TILT_ID);
   dxl.setOperatingMode(PAN_ID, OP_POSITION);
   dxl.setOperatingMode(TILT_ID, OP_POSITION);
-
-  // Turn on servo torque
   dxl.torqueOn(PAN_ID);
   dxl.torqueOn(TILT_ID);
 
@@ -83,6 +82,7 @@ void setup() {
 
 
 bool pingServos() {
+  // Use ping() from your working example
   bool panOk = dxl.ping(PAN_ID);
   if (!panOk) {
     ROS_SERIAL.println("Failed to ping PAN servo (ID 1)");
