@@ -2,7 +2,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument, ExecuteProcess
+from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
@@ -12,6 +12,8 @@ def generate_launch_description():
     
     # URDF file path
     urdf_file_path = os.path.join(pkg_share, 'urdf', 'pan_tilt.urdf')
+    
+    # Load the URDF file
     with open(urdf_file_path, 'r') as f:
         robot_description = f.read()
 
@@ -21,11 +23,12 @@ def generate_launch_description():
     # Declare the serial_port launch argument
     serial_port_arg = DeclareLaunchArgument(
         'serial_port',
-        default_value='/dev/ttyACM0',
+        default_value='/dev/ttyUSB0',
         description='Serial port for the Arduino connection'
     )
 
-    # Robot State Publisher Node
+    # 1. Robot State Publisher
+    # Reads /joint_states and publishes TF (transforms) so RViz knows where parts are
     robot_state_publisher_node = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -34,23 +37,20 @@ def generate_launch_description():
         parameters=[{'robot_description': robot_description}]
     )
 
-    # Pan-Tilt Driver Node
+    # 2. Pan-Tilt Driver Node
+    # Talks to Arduino, publishes REAL /joint_states, subscribes to /pan_goal
     pan_tilt_driver_node = Node(
         package='pan_tilt_control',
         executable='driver_node',
         name='pan_tilt_driver_node',
         output='screen',
-        parameters=[{'serial_port': LaunchConfiguration('serial_port')}]
+        parameters=[{
+            'serial_port': LaunchConfiguration('serial_port'),
+            'baud_rate': 57600 # Explicitly match the firmware
+        }]
     )
 
-    # Joint State Publisher GUI Node (for testing)
-    joint_state_publisher_gui_node = Node(
-        package='joint_state_publisher_gui',
-        executable='joint_state_publisher_gui',
-        name='joint_state_publisher_gui'
-    )
-
-    # RViz2 Node
+    # 3. RViz2 Node
     rviz_node = Node(
         package='rviz2',
         executable='rviz2',
@@ -63,6 +63,6 @@ def generate_launch_description():
         serial_port_arg,
         pan_tilt_driver_node,
         robot_state_publisher_node,
-        joint_state_publisher_gui_node,
+        # joint_state_publisher_gui_node,  <-- REMOVED TO PREVENT CONFLICT
         rviz_node
     ])
