@@ -74,22 +74,48 @@ class PanTiltDriverNode(Node):
         self.joint_state_msg.position = [0.0, 0.0]
 
     def point_callback(self, msg):
+        """
+        Calculates Pan/Tilt to aim at 3D point (x, y, z) with Parallax Correction.
+        """
         x = msg.x
         y = msg.y
         z = msg.z 
 
-        # 1. Calculate LOOK Angles (Gaze Direction)
+        # 1. PAN (Azimuth)
         pan_rad = math.atan2(y, x)
-        
+
+        # 2. TILT (Elevation)
+        # First, calculate the "ideal" angle from the shoulder to the target
         z_relative = z - TILT_AXIS_Z
         xy_distance = math.sqrt(x*x + y*y)
-        tilt_rad = math.atan2(z_relative, xy_distance)
+        distance_3d = math.sqrt(z_relative**2 + xy_distance**2) # Hypotenuse D
+        
+        # Base elevation angle (Center of motor -> Target)
+        base_tilt = math.atan2(z_relative, xy_distance)
+        
+        # 3. PARALLAX CORRECTION
+        # We need to tilt slightly DOWN because the sensor is ABOVE the pivot (when arm is vertical).
+        # Triangle: Hypotenuse = Distance, Opposite = Lidar Offset (0.043)
+        # correction = asin(Offset / Distance)
+        
+        # Safety: Ensure we don't divide by zero or asin(>1)
+        if distance_3d > LIDAR_OFFSET:
+            correction_angle = math.asin(LIDAR_OFFSET / distance_3d)
+            # Subtract correction because arm is "above" the look vector
+            tilt_rad = base_tilt - correction_angle
+        else:
+            # Target is inside the robot's head range!
+            self.get_logger().warn("Target too close for parallax correction!")
+            tilt_rad = base_tilt
 
-        # 2. Send Commands (Servo moves so Sensor looks at target)
+        # 4. Send Commands
         self.send_serial_command('P', pan_rad)
         self.send_serial_command('T', tilt_rad)
 
-        # 3. Visualize
+        # 5. Visualize
+        # IMPORTANT: The marker visualizes the RESULT. 
+        # Since we corrected the servo angle, the resulting laser line 
+        # (calculated from kinematics) should now land EXACTLY on the target.
         self.publish_aiming_marker(pan_rad, tilt_rad, x, y, z)
 
     def pan_goal_callback(self, msg):
