@@ -48,10 +48,6 @@ velodyne/
 label_2/
 timestamps.csv
 
-# KITTI outputs
-*.bin
-*.txt
-
 # Jupyter notebook checkpoints
 .ipynb_checkpoints
 
