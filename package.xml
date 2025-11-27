@@ -13,6 +13,7 @@
 <depend>std_msgs</depend>
 <depend>sensor_msgs</depend>
 <depend>launch</depend>
+<depend>geometry_msgs</depend> <depend>launch</depend>
 <depend>launch_ros</depend>
 
 mkdir pan_tilt_control/launch            # For the launch file
