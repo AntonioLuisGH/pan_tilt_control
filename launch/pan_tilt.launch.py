@@ -17,9 +17,6 @@ def generate_launch_description():
     with open(urdf_file_path, 'r') as f:
         robot_description = f.read()
 
-    # RViz config file path
-    rviz_config_path = os.path.join(pkg_share, 'config', 'pan_tilt.rviz')
-
     # Declare the serial_port launch argument
     serial_port_arg = DeclareLaunchArgument(
         'serial_port',
@@ -28,7 +25,8 @@ def generate_launch_description():
     )
 
     # 1. Robot State Publisher
-    # Reads /joint_states and publishes TF (transforms) so RViz knows where parts are
+    # It publishes TFs (coordinate transforms).
+    # Lets other code know where the camera is pointing.
     robot_state_publisher_node = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -50,19 +48,8 @@ def generate_launch_description():
         }]
     )
 
-    # 3. RViz2 Node
-    rviz_node = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        output='screen',
-        arguments=['-d', rviz_config_path]
-    )
-
     return LaunchDescription([
         serial_port_arg,
         pan_tilt_driver_node,
-        robot_state_publisher_node,
-        # joint_state_publisher_gui_node,  <-- REMOVED TO PREVENT CONFLICT
-        rviz_node
+        robot_state_publisher_node
     ])

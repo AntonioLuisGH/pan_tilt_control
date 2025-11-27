@@ -14,10 +14,18 @@ DXL_CENTER_POS = 2048
 # Map 360 degrees (2*pi) to 4096 steps
 DXL_POS_SCALE_RAD = 4095.0 / (2.0 * math.pi) 
 
+# --- USER DEFINED LIMITS (Raw DXL Values 0-4095) ---
+# Pan: 0 to 2700
+PAN_MIN_DXL = 0
+PAN_MAX_DXL = 2700
+
+# Tilt: 682 to 2048
+TILT_MIN_DXL = 682
+TILT_MAX_DXL = 2048
+
 def rad_to_dynamixel(rad):
     """Converts radians (-pi to +pi) to DYNAMIXEL position value (0-4095)."""
-    # Clamp radians to -pi and +pi to prevent wrapping
-    rad = max(-math.pi, min(math.pi, rad))
+    # Basic conversion
     return int(DXL_CENTER_POS + rad * DXL_POS_SCALE_RAD)
 
 def dynamixel_to_rad(pos):
@@ -29,9 +37,7 @@ class PanTiltDriverNode(Node):
         super().__init__('pan_tilt_driver_node')
         
         # --- PARAMETERS ---
-        # Default to /dev/ttyUSB0 because you are using a USB-to-TTL adapter
         self.declare_parameter('serial_port', '/dev/ttyUSB0')
-        # Default to 57600 to match your Arduino firmware
         self.declare_parameter('baud_rate', 57600)
         
         serial_port = self.get_parameter('serial_port').get_parameter_value().string_value
@@ -41,28 +47,15 @@ class PanTiltDriverNode(Node):
         
         try:
             self.serial_conn = serial.Serial(serial_port, baud_rate, timeout=1.0)
-            # Clear any garbage data currently in the buffer
             self.serial_conn.reset_input_buffer()
             self.get_logger().info("Connected to Arduino Serial Adapter.")
         except serial.SerialException as e:
             self.get_logger().error(f"Could not open serial port {serial_port}: {e}")
-            self.get_logger().error("Check if your adapter is plugged in and permissions are set (sudo chmod 666 /dev/ttyUSB0)")
-            # We don't shutdown immediately to allow parameter reconfiguration, 
-            # but the node won't work until restarted with correct port.
             return
 
         # --- SUBSCRIBERS ---
-        self.pan_sub = self.create_subscription(
-            Float64,
-            '/pan_goal',
-            self.pan_goal_callback,
-            10)
-        
-        self.tilt_sub = self.create_subscription(
-            Float64,
-            '/tilt_goal',
-            self.tilt_goal_callback,
-            10)
+        self.pan_sub = self.create_subscription(Float64, '/pan_goal', self.pan_goal_callback, 10)
+        self.tilt_sub = self.create_subscription(Float64, '/tilt_goal', self.tilt_goal_callback, 10)
             
         # --- PUBLISHER ---
         self.joint_state_pub = self.create_publisher(JointState, '/joint_states', 10)
@@ -72,12 +65,9 @@ class PanTiltDriverNode(Node):
         self.serial_thread.daemon = True
         self.serial_thread.start()
         
-        # Pre-initialize message
         self.joint_state_msg = JointState()
         self.joint_state_msg.name = ['pan_joint', 'tilt_joint']
         self.joint_state_msg.position = [0.0, 0.0]
-        self.joint_state_msg.velocity = []
-        self.joint_state_msg.effort = []
 
     def pan_goal_callback(self, msg):
         if not hasattr(self, 'serial_conn') or not self.serial_conn.is_open:
@@ -86,9 +76,18 @@ class PanTiltDriverNode(Node):
         try:
             goal_rad = msg.data
             goal_dxl = rad_to_dynamixel(goal_rad)
+
+            # --- LIMIT CHECKING PAN ---
+            if goal_dxl < PAN_MIN_DXL:
+                self.get_logger().warn(f"Pan Goal {goal_dxl} too low! Clamping to {PAN_MIN_DXL}.")
+                goal_dxl = PAN_MIN_DXL
+            elif goal_dxl > PAN_MAX_DXL:
+                self.get_logger().warn(f"Pan Goal {goal_dxl} too high! Clamping to {PAN_MAX_DXL}.")
+                goal_dxl = PAN_MAX_DXL
+
             command = f"P{goal_dxl}\n"
             self.serial_conn.write(command.encode('utf-8'))
-            # self.get_logger().info(f"Sent Pan: {command.strip()}")
+
         except Exception as e:
             self.get_logger().warn(f"Failed to send Pan command: {e}")
 
@@ -99,9 +98,18 @@ class PanTiltDriverNode(Node):
         try:
             goal_rad = msg.data
             goal_dxl = rad_to_dynamixel(goal_rad)
+
+            # --- LIMIT CHECKING TILT ---
+            if goal_dxl < TILT_MIN_DXL:
+                self.get_logger().warn(f"Tilt Goal {goal_dxl} too low! Clamping to {TILT_MIN_DXL}.")
+                goal_dxl = TILT_MIN_DXL
+            elif goal_dxl > TILT_MAX_DXL:
+                self.get_logger().warn(f"Tilt Goal {goal_dxl} too high! Clamping to {TILT_MAX_DXL}.")
+                goal_dxl = TILT_MAX_DXL
+
             command = f"T{goal_dxl}\n"
             self.serial_conn.write(command.encode('utf-8'))
-            # self.get_logger().info(f"Sent Tilt: {command.strip()}")
+
         except Exception as e:
             self.get_logger().warn(f"Failed to send Tilt command: {e}")
 
@@ -110,10 +118,8 @@ class PanTiltDriverNode(Node):
         while rclpy.ok():
             try:
                 if hasattr(self, 'serial_conn') and self.serial_conn.is_open and self.serial_conn.in_waiting > 0:
-                    # Read line, decode, and strip whitespace
                     line = self.serial_conn.readline().decode('utf-8', errors='replace').strip()
                     
-                    # Filter out debug lines vs data lines
                     if line.startswith('S_'):
                         parts = line.split('_')
                         if len(parts) == 3:
@@ -124,21 +130,15 @@ class PanTiltDriverNode(Node):
                                 pan_pos_rad = dynamixel_to_rad(pan_pos_dxl)
                                 tilt_pos_rad = dynamixel_to_rad(tilt_pos_dxl)
                                 
-                                # Publish ROS Message
                                 self.joint_state_msg.header.stamp = self.get_clock().now().to_msg()
                                 self.joint_state_msg.position = [pan_pos_rad, tilt_pos_rad]
                                 self.joint_state_pub.publish(self.joint_state_msg)
                                 
                             except ValueError:
-                                pass # Ignore partial/corrupt lines
-                    elif line:
-                         # Log debug messages from Arduino (but don't spam)
-                         # self.get_logger().info(f"Arduino: {line}")
-                         pass
-
+                                pass 
             except Exception as e:
                 self.get_logger().error(f"Serial loop error: {e}")
-                time.sleep(1) # Prevent CPU spin if serial fails
+                time.sleep(1) 
                 
     def on_shutdown(self):
         self.get_logger().info("Shutting down, closing serial port.")
