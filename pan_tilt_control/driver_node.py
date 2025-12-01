@@ -21,8 +21,8 @@ STEPS_PER_RAD = 4096.0 / (2.0 * math.pi)
 # --- USER LIMITS ---
 PAN_MIN_DXL = 0
 PAN_MAX_DXL = 4095
-TILT_MIN_DXL = 0
-TILT_MAX_DXL = 2048
+TILT_MIN_DXL = 170 # 15 degrees
+TILT_MAX_DXL = 1536 # 135 degrees
 
 def rad_to_dxl_pan(rad):
     center = 2048
