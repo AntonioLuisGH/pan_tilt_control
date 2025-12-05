@@ -10,11 +10,12 @@ import time
 import math
 
 # --- PHYSICAL GEOMETRY (Meters) ---
+# Distances: # wood: 10m0, wood_to_bottom: 150mm , metal_ceiling_width: 10m, metal_to_tilt_joint: 65mm, tilt_joint_to_lidar: 73mm
 HEIGHT_BASE_TO_PAN = 0.16
-HEIGHT_PAN_TO_TILT = 0.07
+HEIGHT_PAN_TO_TILT = 0.075
 TILT_AXIS_Z = HEIGHT_BASE_TO_PAN + HEIGHT_PAN_TO_TILT
-LIDAR_OFFSET = 0.043 # 43mm arm length
-# wood: 10m, wood_to_bottom: 150mm , metal_ceiling_width: 10m, metal_to_tilt_joint: 65mm 
+LIDAR_OFFSET = 0.073
+
 # --- DYNAMIXEL CONFIGURATION ---
 STEPS_PER_RAD = 4096.0 / (2.0 * math.pi)
 

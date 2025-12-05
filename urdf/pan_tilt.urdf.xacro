@@ -1,6 +1,10 @@
 <?xml version="1.0"?>
-<robot name="pan_tilt_turret">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="pan_tilt_turret">
 
+  <xacro:property name="height_base_to_pan" value="0.16" />
+  <xacro:property name="height_pan_to_tilt" value="0.075" />
+  <xacro:property name="lidar_offset"       value="0.073" />
+  
   <material name="grey">
     <color rgba="0.5 0.5 0.5 1"/>
   </material>
@@ -23,9 +27,9 @@
 
   <link name="link_1_post">
     <visual>
-      <origin xyz="0 0 0.0725" rpy="0 0 0"/>
+      <origin xyz="0 0 ${height_base_to_pan/2}" rpy="0 0 0"/>
       <geometry>
-        <cylinder length="0.145" radius="0.02"/>
+        <cylinder length="${height_base_to_pan}" radius="0.02"/>
       </geometry>
       <material name="grey"/>
     </visual>
@@ -40,16 +44,16 @@
   <joint name="pan_joint" type="revolute">
     <parent link="link_1_post"/>
     <child link="link_2_pan"/>
-    <origin xyz="0 0 0.145" rpy="0 0 0"/>
+    <origin xyz="0 0 ${height_base_to_pan}" rpy="0 0 0"/>
     <axis xyz="0 0 1"/>
     <limit lower="-2.35" upper="2.35" effort="10" velocity="1.0"/>
   </joint>
 
   <link name="link_2_pan">
     <visual>
-      <origin xyz="0 0 0.0375" rpy="0 0 0"/>
+      <origin xyz="0 0 ${height_pan_to_tilt/2}" rpy="0 0 0"/>
       <geometry>
-        <cylinder length="0.075" radius="0.02"/>
+        <cylinder length="${height_pan_to_tilt}" radius="0.02"/>
       </geometry>
       <material name="grey"/>
     </visual>
@@ -58,15 +62,16 @@
   <joint name="tilt_joint" type="revolute">
     <parent link="link_2_pan"/>
     <child link="link_3_tilt"/>
-    <origin xyz="0 0 0.075" rpy="0 -1.5708 0"/> 
-    <axis xyz="0 -1 0"/> <limit lower="-1.57" upper="1.57" effort="10" velocity="1.0"/>
+    <origin xyz="0 0 ${height_pan_to_tilt}" rpy="0 -1.5708 0"/>
+    <axis xyz="0 -1 0"/>
+    <limit lower="-1.57" upper="1.57" effort="10" velocity="1.0"/>
   </joint>
 
   <link name="link_3_tilt">
     <visual>
-      <origin xyz="0.0215 0 0" rpy="0 0 0"/> 
+      <origin xyz="${lidar_offset/2} 0 0" rpy="0 0 0"/> 
       <geometry>
-        <box size="0.043 0.04 0.01"/>
+        <box size="${lidar_offset} 0.04 0.01"/>
       </geometry>
       <material name="black"/>
     </visual>
@@ -75,8 +80,7 @@
   <joint name="laser_joint" type="fixed">
     <parent link="link_3_tilt"/>
     <child link="laser_frame"/>
-    
-    <origin xyz="0.043 0 0" rpy="0 1.5708 0"/> 
+    <origin xyz="${lidar_offset} 0 0" rpy="0 1.5708 0"/> 
   </joint>
 
   <link name="laser_frame">
