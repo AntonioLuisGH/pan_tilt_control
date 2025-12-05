@@ -10,7 +10,7 @@ import time
 import math
 
 # --- PHYSICAL GEOMETRY (Meters) ---
-# Distances: # wood: 10m0, wood_to_bottom: 150mm , metal_ceiling_width: 10m, metal_to_tilt_joint: 65mm, tilt_joint_to_lidar: 73mm
+# Distances -> wood: 10mm, wood_to_bottom: 150mm , metal_ceiling_width: 10mm, metal_to_tilt_joint: 65mm, tilt_joint_to_lidar: 73mm
 HEIGHT_BASE_TO_PAN = 0.16
 HEIGHT_PAN_TO_TILT = 0.075
 TILT_AXIS_Z = HEIGHT_BASE_TO_PAN + HEIGHT_PAN_TO_TILT
@@ -96,7 +96,7 @@ class PanTiltDriverNode(Node):
         
         # 3. PARALLAX CORRECTION
         # We need to tilt slightly DOWN because the sensor is ABOVE the pivot (when arm is vertical).
-        # Triangle: Hypotenuse = Distance, Opposite = Lidar Offset (0.043)
+        # Triangle: Hypotenuse = Distance, Opposite = Lidar Offset
         # correction = asin(Offset / Distance)
         
         # Safety: Ensure we don't divide by zero or asin(>1)
