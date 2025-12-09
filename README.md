@@ -12,10 +12,9 @@ The system accepts a target point $(x, y, z)$ in 3D space and automatically calc
 
 ### Hardware
 
-- **Actuators:** 
-    - 2x Dynamixel MX106R Servomotors.
-        - **ID 1 (Pan):** Rotates the tower (Yaw).
-        - **ID 2 (Tilt):** Rotates the sensor bracket (Pitch).
+- **Actuators:** 2x Dynamixel MX106R Servomotors.
+    - **ID 1 (Pan):** Rotates the tower (Yaw).
+    - **ID 2 (Tilt):** Rotates the sensor bracket (Pitch).
 - **Controller:** Arduino Mega 2560 + Dynamixel Shield.
 - **Sensor Mounting:** The LiDAR is mounted perpendicular to the tilt servo's horn.
 
@@ -24,12 +23,12 @@ The system accepts a target point $(x, y, z)$ in 3D space and automatically calc
 The system solves the Inverse Kinematics (IK) for a turret with specific vertical and forward offsets.
 
 - **Physical Links:**
-    - Base $\rightarrow$ Pan Axis: A vertical static post of 14.5 cm.
-    - Pan Axis $\rightarrow$ Tilt Axis: A vertical offset of 7.5 cm.
-    - Total "Shoulder" Height: 22.0 cm from the ground.
-    - Tilt Axis $\rightarrow$ LiDAR Lens: A forward offset of 4.3 cm.
+    - Base $\rightarrow$ Pan Axis: A vertical static post of **16.0 cm**.
+    - Pan Axis $\rightarrow$ Tilt Axis: A vertical offset of **7.5 cm**.
+    - Total "Shoulder" Height: **23.5 cm** from the ground.
+    - Tilt Axis $\rightarrow$ LiDAR Lens: A forward offset of **7.3 cm**.
 
-**Note on Mounting:** The physical bracket (Link 3) stands vertical when the LiDAR looks horizontal. There is a 90° mechanical offset between the arm direction and the gaze direction.
+> **Note on Mounting:** The physical bracket (Link 3) stands vertical when the LiDAR looks horizontal. There is a 90° mechanical offset between the arm direction and the gaze direction.
 
 ## Installation
 
@@ -37,7 +36,7 @@ The system solves the Inverse Kinematics (IK) for a turret with specific vertica
 
 - ROS 2 (Humble/Iron/Rolling)
 - Python 3
-- pyserial
+- `pyserial`
 - Arduino IDE (for firmware)
 
 ### Building
@@ -52,27 +51,25 @@ source install/setup.bash
 
 ## Configuration & Customization
 
-If the physical hardware is modified, you must update the parameters in two locations: the Driver Node (for math/safety) and the URDF (for visualization).
+If the physical hardware is modified, you must update the parameters in two locations: the Driver Node (for math/safety) and the URDF Xacro file (for visualization).
 
 ### 1. Adjusting Dimensions & Limits (`driver_node.py`)
 
 Open `pan_tilt_control/driver_node.py` to modify the following constants:
 
-#### Physical Geometry
-
+**Physical Geometry**
 Change these if you modify the 3D printed parts or mounting heights.
 
 ```python
 # Heights in meters relative to the base (Ground)
-HEIGHT_BASE_TO_PAN = 0.145  # Height of the first static pillar
+HEIGHT_BASE_TO_PAN = 0.16   # Height of the first static pillar
 HEIGHT_PAN_TO_TILT = 0.075  # Height from Pan servo to Tilt servo axis
 
 # The forward distance from the Tilt Motor center to the LiDAR lens
-LIDAR_OFFSET = 0.043        # 43mm
+LIDAR_OFFSET = 0.073        # 73mm
 ```
 
-#### Safety Limits & Calibration
-
+**Safety Limits & Calibration**
 Change these if you re-assemble the servos in a different orientation.
 
 ```python
@@ -85,18 +82,17 @@ TILT_MIN_DXL = 0     # Look straight down (Ground)
 TILT_MAX_DXL = 2048  # Look straight up (Sky)
 ```
 
-### 2. Adjusting Visualization (`pan_tilt.urdf`)
+### 2. Adjusting Visualization (`urdf/pan_tilt.urdf.xacro`)
 
-Open `urdf/pan_tilt.urdf` to match the visual model to the physical changes.
-
-- **Link Lengths:** Update the `<cylinder length="...">` and `<origin z="...">` tags for `link_1_post` or `link_2_pan`.
-- **Sensor Offset:** Update the `laser_joint` origin if `LIDAR_OFFSET` changes:
+The project uses Xacro to simplify configuration. Open `urdf/pan_tilt.urdf.xacro` and update the properties at the top of the file to match your Python driver settings.
 
 ```xml
-<joint name="laser_joint" type="fixed">
-    <origin xyz="0.043 0 0" rpy="0 1.5708 0"/> 
-</joint>
+<xacro:property name="height_base_to_pan" value="0.16" />
+<xacro:property name="height_pan_to_tilt" value="0.075" />
+<xacro:property name="lidar_offset"       value="0.073" />
 ```
+
+*Note: You do not need to manually edit cylinders or joints; the Xacro file will automatically resize the robot model based on these values.*
 
 ## Usage
 
@@ -108,7 +104,15 @@ This command starts the Driver Node, the Robot State Publisher, and RViz2 with t
 ros2 launch pan_tilt_control pan_tilt.launch.py
 ```
 
-**Optional Argument:** `serial_port:=/dev/ttyACM0` (Default is `/dev/ttyUSB0`)
+**Launch Arguments**
+- `serial_port`: Path to the Arduino. Default: `/dev/ttyUSB0`.
+- `parent_frame`: The fixed frame in RViz to attach the turret to. Default: `world`.
+
+**Example: Launching connected to a specific drone coordinate system:**
+
+```bash
+ros2 launch pan_tilt_control pan_tilt.launch.py parent_frame:=drone_world serial_port:=/dev/ttyACM0
+```
 
 ### 2. Control Interface
 
@@ -116,7 +120,7 @@ The node subscribes to a 3D point topic. The system will calculate the angles re
 
 - **Topic:** `/cmd_point`
 - **Message Type:** `geometry_msgs/msg/Point`
-- **Frame:** Relative to the turret base (0,0,0).
+- **Frame:** Relative to the turret base (0,0,0) (or the transformed location if `parent_frame` is used).
 
 **Example Command (Aim 5m forward, 2m left, 3m up):**
 
@@ -128,8 +132,8 @@ ros2 topic pub --once /cmd_point geometry_msgs/msg/Point "{x: 5.0, y: 2.0, z: 3.
 
 - **Robot Model:** Shows the real-time position of the links based on feedback from the servos.
 - **Laser Beam:** A red line in RViz drawn from the LiDAR Lens (not the motor center) to the target point. This confirms the kinematic math is correct.
-- **Green Line:** Indicates the arm is Vertical (Looking Horizontal).
-- **Red Line:** Indicates the arm is Horizontal (Looking Skyward).
+- **Green Line (Arm):** Indicates the arm is Vertical (Looking Horizontal).
+- **Red Line (Laser):** Indicates the gaze direction.
 
 ## Firmware (Arduino)
 
