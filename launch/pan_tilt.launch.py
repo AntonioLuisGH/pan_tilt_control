@@ -14,6 +14,13 @@ def generate_launch_description():
     # Process Xacro into URDF
     robot_description_config = Command(['xacro ', xacro_file])
 
+    # CONFIG FILE FOR THE DRIVER NODE
+    config_file = os.path.join(
+    get_package_share_directory('pan_tilt_control'),
+    'config',
+    'calibration_params.yaml'
+    )
+    
     return LaunchDescription([
         # --- ARGUMENTS ---
         DeclareLaunchArgument(
@@ -49,7 +56,10 @@ def generate_launch_description():
             package='pan_tilt_control',
             executable='driver_node',
             name='driver_node',
-            parameters=[{'serial_port': LaunchConfiguration('serial_port')}]
+            parameters=[
+                {'serial_port': LaunchConfiguration('serial_port')},
+                config_file  # <--- LOAD THE CONFIG HERE
+            ]
         ),
 
         # Node(

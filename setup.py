@@ -33,6 +33,7 @@ setup(
         'console_scripts': [
             # This makes your driver_node.py an executable
             'driver_node = pan_tilt_control.driver_node:main',
+            'calibrate_offsets = pan_tilt_control.calibrate_offsets:main',
         ],
     },
 )

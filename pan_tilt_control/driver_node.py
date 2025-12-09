@@ -45,12 +45,18 @@ class PanTiltDriverNode(Node):
     def __init__(self):
         super().__init__('pan_tilt_driver_node')
 
+        # --- PARAMETERS ---
+        self.declare_parameter('pan_offset_rad', 0.0)
+        self.declare_parameter('tilt_offset_rad', 0.0)
         self.declare_parameter('serial_port', '/dev/ttyUSB0')
         self.declare_parameter('baud_rate', 57600)
-        
+
+        # Load values
+        self.pan_offset = self.get_parameter('pan_offset_rad').value
+        self.tilt_offset = self.get_parameter('tilt_offset_rad').value
         serial_port = self.get_parameter('serial_port').get_parameter_value().string_value
         baud_rate = self.get_parameter('baud_rate').get_parameter_value().integer_value
-        
+
         try:
             self.serial_conn = serial.Serial(serial_port, baud_rate, timeout=1.0)
             self.serial_conn.reset_input_buffer()
@@ -95,17 +101,10 @@ class PanTiltDriverNode(Node):
         base_tilt = math.atan2(z_relative, xy_distance)
         
         # 3. PARALLAX CORRECTION
-        # We need to tilt slightly DOWN because the sensor is ABOVE the pivot (when arm is vertical).
-        # Triangle: Hypotenuse = Distance, Opposite = Lidar Offset
-        # correction = asin(Offset / Distance)
-        
-        # Safety: Ensure we don't divide by zero or asin(>1)
         if distance_3d > LIDAR_OFFSET:
             correction_angle = math.asin(LIDAR_OFFSET / distance_3d)
-            # Subtract correction because arm is "above" the look vector
             tilt_rad = base_tilt - correction_angle
         else:
-            # Target is inside the robot's head range!
             self.get_logger().warn("Target too close for parallax correction!")
             tilt_rad = base_tilt
 
@@ -114,9 +113,6 @@ class PanTiltDriverNode(Node):
         self.send_serial_command('T', tilt_rad)
 
         # 5. Visualize
-        # IMPORTANT: The marker visualizes the RESULT. 
-        # Since we corrected the servo angle, the resulting laser line 
-        # (calculated from kinematics) should now land EXACTLY on the target.
         self.publish_aiming_marker(pan_rad, tilt_rad, x, y, z)
 
     def pan_goal_callback(self, msg):
@@ -129,11 +125,14 @@ class PanTiltDriverNode(Node):
         if not self.serial_conn: return
         try:
             if axis == 'P': 
-                goal_dxl = rad_to_dxl_pan(rad)
+                corrected_rad = rad - self.pan_offset
+                goal_dxl = rad_to_dxl_pan(corrected_rad)
                 goal_dxl = max(PAN_MIN_DXL, min(PAN_MAX_DXL, goal_dxl))
                 self.serial_conn.write(f"P{goal_dxl}\n".encode('utf-8'))
+
             elif axis == 'T': 
-                goal_dxl = rad_to_dxl_tilt(rad)
+                corrected_rad = rad - self.tilt_offset
+                goal_dxl = rad_to_dxl_tilt(corrected_rad)
                 goal_dxl = max(TILT_MIN_DXL, min(TILT_MAX_DXL, goal_dxl))
                 self.serial_conn.write(f"T{goal_dxl}\n".encode('utf-8'))
         except Exception: pass
@@ -150,16 +149,7 @@ class PanTiltDriverNode(Node):
         marker.color = ColorRGBA(r=1.0, g=0.0, b=0.0, a=1.0) 
 
         # --- CALCULATE START POINT (The Lidar Lens) ---
-        # The Arm is always 90 degrees offset from the Gaze direction.
-        # If Gaze is 0 (Horizon), Arm is +90 (Vertical Up).
-        # We calculate the position of the Arm Tip based on this.
-        
-        # Arm Angle = Gaze Angle + 90 degrees (pi/2)
         arm_tilt = tilt_gaze + (math.pi / 2.0)
-        
-        # Spherical coordinates for the ARM TIP
-        # Z = Center + L * sin(arm_tilt)
-        # XY_Proj = L * cos(arm_tilt)
         
         p_start = Point()
         p_start.z = TILT_AXIS_Z + LIDAR_OFFSET * math.sin(arm_tilt)
